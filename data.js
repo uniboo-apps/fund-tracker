@@ -1,6 +1,6 @@
 // Auto-generated -- do not edit (overwritten by update workflow)
 window.DATA = {
-  "generatedAt": "2026-06-09 09:05",
+  "generatedAt": "2026-06-09 09:07",
   "funds": {
   "orukan": {
     "name": "eMAXIS Slim 全世界株式（オール・カントリー）",
