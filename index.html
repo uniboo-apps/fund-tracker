@@ -299,7 +299,8 @@ function render(){
     (navDates[lastIdx]<ixLast[0]?'　※基準価額(' + navDates[lastIdx] + ')は指数より日付が古いので、次の更新で追いつきます。':'');
 }
 
-document.getElementById('updated').textContent='データ取得: '+DATA.generatedAt+' 時点';
+const _f=DATA.funds[Object.keys(DATA.funds)[0]];
+document.getElementById('updated').textContent='基準価額: '+_f.nav[_f.nav.length-1][0]+' 時点';
 document.getElementById('tMa').onchange=render;
 document.getElementById('tIdx').onchange=render;
 setupTabs();
