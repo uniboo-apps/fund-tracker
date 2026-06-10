@@ -57,12 +57,50 @@
   .hint b{color:var(--idx)}
   .foot{color:var(--sub);font-size:11px;margin-top:18px;line-height:1.7}
   .foot code{background:var(--panel2);padding:1px 6px;border-radius:5px}
+
+  /* --- update button & settings modal --- */
+  .hdr{display:flex;align-items:flex-start;justify-content:space-between}
+  .hdr-btns{display:flex;gap:8px;padding-top:6px}
+  .icon-btn{background:var(--panel);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:6px 10px;font-size:18px;cursor:pointer;line-height:1;
+    transition:opacity .15s}
+  .icon-btn:disabled{opacity:.35;cursor:not-allowed}
+  .icon-btn.spinning{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .upd-msg{font-size:12px;color:var(--sub);margin-bottom:10px;min-height:16px}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;
+    align-items:center;justify-content:center}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:20px;width:min(420px,92vw);max-height:90vh;overflow-y:auto}
+  .modal h2{margin:0 0 14px;font-size:16px}
+  .modal label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
+  .modal input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:10px 12px;font-size:13px;font-family:monospace;
+    box-sizing:border-box;margin-bottom:4px}
+  .modal input:focus{outline:1px solid var(--accent)}
+  .modal .note{font-size:12px;color:var(--sub);margin:8px 0 16px;line-height:1.65}
+  .modal .note a{color:var(--accent);text-decoration:none}
+  .btn-row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+  .mbtn{padding:9px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer}
+  .mbtn-primary{background:var(--accent);color:#fff}
+  .mbtn-danger{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b}
+  .mbtn-cancel{background:var(--panel2);color:var(--sub);border:1px solid var(--line)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>📉 ファンド・ウォッチャー</h1>
-  <div class="updated" id="updated"></div>
+  <div class="hdr">
+    <div>
+      <h1>📉 ファンド・ウォッチャー</h1>
+      <div class="updated" id="updated"></div>
+    </div>
+    <div class="hdr-btns">
+      <button class="icon-btn" id="btnUpdate" title="データを今すぐ更新">🔄</button>
+      <button class="icon-btn" id="btnSettings" title="設定">⚙️</button>
+    </div>
+  </div>
+  <div class="upd-msg" id="updMsg"></div>
 
   <div class="tabs" id="tabs"></div>
   <div class="fundname" id="fundname"></div>
@@ -100,7 +138,26 @@
   <div class="foot">
     ・基準価額は1営業日に1回（夜）更新。指数（米国市場）の値動きは<b>翌営業日の基準価額</b>に反映されます。<br>
     ・指数は通貨が異なる(USD)ため、グラフでは形の比較用に基準価額へ合わせて正規化しています（為替差は含みません）。<br>
-    ・データ更新： <code>update.bat</code> をダブルクリック → このページを再読み込み（Ctrl+F5）。
+    ・自動更新は平日20〜22時。手動更新は右上の 🔄 ボタン（初回は ⚙️ で GitHub Token を設定）。
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>⚙️ 設定</h2>
+    <label for="patInput">GitHub Personal Access Token</label>
+    <input type="password" id="patInput" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+    <div class="note">
+      Token は <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> で発行。<br>
+      スコープ: <code style="background:var(--panel2);padding:1px 5px;border-radius:4px">workflow</code> にチェック（Classic Token 推奨）。<br>
+      Token はこの端末の localStorage にのみ保存され、外部には送信されません。
+    </div>
+    <div class="btn-row">
+      <button class="mbtn mbtn-danger" id="btnClearPat">削除</button>
+      <button class="mbtn mbtn-cancel" id="btnModalClose">キャンセル</button>
+      <button class="mbtn mbtn-primary" id="btnSavePat">保存</button>
+    </div>
   </div>
 </div>
 
@@ -310,6 +367,102 @@ render();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
+
+// --- GitHub Actions manual trigger ---
+const REPO = 'uniboo-apps/fund-tracker';
+const WORKFLOW = 'update-data.yml';
+const PAT_KEY = 'ghpat_fund_tracker';
+
+const btnUpdate   = document.getElementById('btnUpdate');
+const btnSettings = document.getElementById('btnSettings');
+const modalBg     = document.getElementById('modalBg');
+const patInput    = document.getElementById('patInput');
+const updMsg      = document.getElementById('updMsg');
+
+function setMsg(txt, color){ updMsg.textContent=txt; updMsg.style.color=color||'var(--sub)'; }
+
+// Settings modal
+function openSettings(){
+  const saved = localStorage.getItem(PAT_KEY);
+  patInput.value = saved || '';
+  modalBg.classList.add('open');
+  patInput.focus();
+}
+btnSettings.onclick = openSettings;
+document.getElementById('btnModalClose').onclick = () => modalBg.classList.remove('open');
+document.getElementById('btnSavePat').onclick = () => {
+  const v = patInput.value.trim();
+  if(!v){ alert('Token を入力してください'); return; }
+  localStorage.setItem(PAT_KEY, v);
+  modalBg.classList.remove('open');
+  setMsg('Token を保存しました。🔄 で更新できます。');
+};
+document.getElementById('btnClearPat').onclick = () => {
+  localStorage.removeItem(PAT_KEY);
+  patInput.value = '';
+  setMsg('Token を削除しました。');
+  modalBg.classList.remove('open');
+};
+modalBg.addEventListener('click', e => { if(e.target===modalBg) modalBg.classList.remove('open'); });
+
+// Update trigger
+btnUpdate.onclick = async () => {
+  const token = localStorage.getItem(PAT_KEY);
+  if(!token){ openSettings(); return; }
+
+  btnUpdate.disabled = true;
+  btnUpdate.classList.add('spinning');
+  setMsg('ワークフローを起動中…');
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
+      { method:'POST',
+        headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
+        body: JSON.stringify({ ref:'main' }) });
+
+    if(res.status === 401){ setMsg('Token が無効です。⚙️ で再設定してください。','#ef4444'); return; }
+    if(res.status === 403){ setMsg('Token に workflow スコープが必要です。','#ef4444'); return; }
+    if(!res.ok){ setMsg(`GitHub API エラー (${res.status})。しばらく待って再試行してください。`,'#ef4444'); return; }
+
+    setMsg('起動しました。完了まで約1分待機中…');
+    const triggerTime = Date.now();
+
+    // Wait for the new run to appear
+    await new Promise(r => setTimeout(r, 6000));
+
+    // Poll up to ~2 min
+    for(let i=0; i<22; i++){
+      await new Promise(r => setTimeout(r, 5000));
+      const r2 = await fetch(
+        `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/runs?per_page=1`,
+        { headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' } });
+      if(!r2.ok) continue;
+      const d = await r2.json();
+      const run = d.workflow_runs?.[0];
+      // Skip runs that existed before we triggered
+      if(!run || new Date(run.created_at).getTime() < triggerTime - 30000) continue;
+      const elapsed = Math.round((Date.now()-new Date(run.created_at).getTime())/1000);
+      if(run.status === 'completed'){
+        if(run.conclusion === 'success'){
+          setMsg('更新完了！ページをリロードします…','#22c55e');
+          await new Promise(r => setTimeout(r, 1500));
+          location.reload();
+        } else {
+          setMsg(`ワークフロー失敗 (${run.conclusion})。GitHub Actions を確認してください。`,'#ef4444');
+        }
+        return;
+      }
+      setMsg(`実行中… (${elapsed}秒経過)`);
+    }
+    setMsg('タイムアウト。GitHub Actions でステータスを確認してください。','#f59e0b');
+  } catch(e) {
+    setMsg('ネットワークエラー: '+e.message,'#ef4444');
+  } finally {
+    btnUpdate.disabled = false;
+    btnUpdate.classList.remove('spinning');
+  }
+};
 </script>
 </body>
 </html>
