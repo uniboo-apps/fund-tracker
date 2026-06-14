@@ -130,8 +130,8 @@
   <div class="periods" id="periods"></div>
   <div class="chartbox"><canvas id="chart"></canvas></div>
   <div class="toggles">
-    <label><input type="checkbox" id="tMa" checked> 移動平均線(25/75/200日)</label>
-    <label><input type="checkbox" id="tIdx" checked> 指数を重ねる(形を比較)</label>
+    <label><input type="checkbox" id="tMa"> 移動平均線(25/75/200日)</label>
+    <label><input type="checkbox" id="tIdx"> 指数を重ねる(形を比較)</label>
   </div>
 
   <div class="hint" id="hint"></div>
@@ -360,8 +360,21 @@ function render(){
 
 const _f=DATA.funds[Object.keys(DATA.funds)[0]];
 document.getElementById('updated').textContent='基準価額: '+_f.nav[_f.nav.length-1][0]+' 時点';
-document.getElementById('tMa').onchange=render;
-document.getElementById('tIdx').onchange=render;
+// Toggle state persistence
+const TOGGLE_KEY='ft_toggles';
+(function(){
+  const s=JSON.parse(localStorage.getItem(TOGGLE_KEY)||'{}');
+  document.getElementById('tMa').checked  = s.ma  ?? false;
+  document.getElementById('tIdx').checked = s.idx ?? false;
+})();
+function saveToggles(){
+  localStorage.setItem(TOGGLE_KEY,JSON.stringify({
+    ma:document.getElementById('tMa').checked,
+    idx:document.getElementById('tIdx').checked
+  }));
+}
+document.getElementById('tMa').onchange=()=>{saveToggles();render();};
+document.getElementById('tIdx').onchange=()=>{saveToggles();render();};
 setupTabs();
 setupPeriods();
 render();
