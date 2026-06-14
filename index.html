@@ -86,6 +86,7 @@
   .mbtn-primary{background:var(--accent);color:#fff}
   .mbtn-danger{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b}
   .mbtn-cancel{background:var(--panel2);color:var(--sub);border:1px solid var(--line)}
+  .mbtn-share{background:var(--panel2);color:#22d3ee;border:1px solid #22d3ee}
 </style>
 </head>
 <body>
@@ -155,6 +156,7 @@
     </div>
     <div class="btn-row">
       <button class="mbtn mbtn-danger" id="btnClearPat">削除</button>
+      <button class="mbtn mbtn-share" id="btnSharePat" style="display:none">📱 URLコピー</button>
       <button class="mbtn mbtn-cancel" id="btnModalClose">キャンセル</button>
       <button class="mbtn mbtn-primary" id="btnSavePat">保存</button>
     </div>
@@ -382,9 +384,11 @@ const updMsg      = document.getElementById('updMsg');
 function setMsg(txt, color){ updMsg.textContent=txt; updMsg.style.color=color||'var(--sub)'; }
 
 // Settings modal
+const btnSharePat = document.getElementById('btnSharePat');
 function openSettings(){
   const saved = localStorage.getItem(PAT_KEY);
   patInput.value = saved || '';
+  btnSharePat.style.display = saved ? '' : 'none';
   modalBg.classList.add('open');
   patInput.focus();
 }
@@ -394,16 +398,40 @@ document.getElementById('btnSavePat').onclick = () => {
   const v = patInput.value.trim();
   if(!v){ alert('Token を入力してください'); return; }
   localStorage.setItem(PAT_KEY, v);
+  btnSharePat.style.display = '';
   modalBg.classList.remove('open');
   setMsg('Token を保存しました。🔄 で更新できます。');
 };
 document.getElementById('btnClearPat').onclick = () => {
   localStorage.removeItem(PAT_KEY);
   patInput.value = '';
+  btnSharePat.style.display = 'none';
   setMsg('Token を削除しました。');
   modalBg.classList.remove('open');
 };
+btnSharePat.onclick = () => {
+  const token = localStorage.getItem(PAT_KEY);
+  if(!token) return;
+  const url = location.origin + location.pathname + '#pat=' + encodeURIComponent(token);
+  navigator.clipboard.writeText(url).then(() => {
+    setMsg('URLをコピーしました。スマホで開くと自動設定されます。');
+    modalBg.classList.remove('open');
+  }).catch(() => {
+    prompt('このURLをコピーしてスマホで開いてください:', url);
+  });
+};
 modalBg.addEventListener('click', e => { if(e.target===modalBg) modalBg.classList.remove('open'); });
+
+// URL ハッシュ経由でのトークン自動設定（スマホ向け）
+(function(){
+  const hash = location.hash;
+  if(!hash.startsWith('#pat=')) return;
+  const token = decodeURIComponent(hash.slice(5));
+  if(!token) return;
+  localStorage.setItem(PAT_KEY, token);
+  history.replaceState(null, '', location.pathname + location.search);
+  setMsg('Token を自動設定しました。🔄 で更新できます。');
+})();
 
 // Update trigger
 btnUpdate.onclick = async () => {
