@@ -231,7 +231,7 @@ function setupPeriods(){
     b.className='pbtn'+(d===curDays?' active':'');
     b.textContent=lbl;
     b.onclick=()=>{document.querySelectorAll('.pbtn').forEach(t=>t.classList.remove('active'));
-      b.classList.add('active');curDays=d;render();};
+      b.classList.add('active');curDays=d;saveToggles();render();};
     box.appendChild(b);
   });
 }
@@ -366,11 +366,13 @@ const TOGGLE_KEY='ft_toggles';
   const s=JSON.parse(localStorage.getItem(TOGGLE_KEY)||'{}');
   document.getElementById('tMa').checked  = s.ma  ?? false;
   document.getElementById('tIdx').checked = s.idx ?? false;
+  if(s.days) curDays=s.days;
 })();
 function saveToggles(){
   localStorage.setItem(TOGGLE_KEY,JSON.stringify({
     ma:document.getElementById('tMa').checked,
-    idx:document.getElementById('tIdx').checked
+    idx:document.getElementById('tIdx').checked,
+    days:curDays
   }));
 }
 document.getElementById('tMa').onchange=()=>{saveToggles();render();};
