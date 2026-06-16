@@ -68,8 +68,8 @@ object ChartRenderer {
         val nameBaseline = headerTop + flagH / 2f - (nameP.descent() + nameP.ascent()) / 2f
         c.drawText(name, nameX, nameBaseline, nameP)
         val nameW = nameP.measureText(name)
-        val tagP = textPaint(BOLD, 12f * u, C_TAG)
-        c.drawText("CFD", nameX + nameW + 7f * u, nameBaseline, tagP)
+        val cfdTagP = textPaint(BOLD, 12f * u, C_TAG)
+        c.drawText("CFD", nameX + nameW + 7f * u, nameBaseline, cfdTagP)
 
         // --- ヘッダー右：更新情報（2行） ---
         val updP = textPaint(BOLD, 10f * u, C_UPD).apply { textAlign = Paint.Align.RIGHT }
