@@ -3,11 +3,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- カード全体：タップで S&P500 ⇄ オルカン を切替 -->
     <ImageView
-        android:id="@+id/item_image"
+        android:id="@+id/widget_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitCenter"
         android:adjustViewBounds="true"
         android:contentDescription="@string/widget_desc" />
+
+    <!-- 右下の小さな当たり判定：タップで ライト ⇄ ダーク を切替（中・大のみ表示） -->
+    <FrameLayout
+        android:id="@+id/theme_hit"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|end" />
 </FrameLayout>

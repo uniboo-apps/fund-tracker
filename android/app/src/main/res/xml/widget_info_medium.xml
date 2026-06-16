@@ -5,7 +5,7 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="21600000"
-    android:initialLayout="@layout/widget_stack"
+    android:initialLayout="@layout/widget"
     android:previewImage="@drawable/ic_launcher_foreground"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

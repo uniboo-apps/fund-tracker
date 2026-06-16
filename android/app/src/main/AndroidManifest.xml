@@ -49,16 +49,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.uniboo.fundwidget.TOGGLE" />
+                <action android:name="com.uniboo.fundwidget.THEME" />
+                <action android:name="com.uniboo.fundwidget.REFRESH" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
-
-        <!-- StackView のカード(2ファンド)を供給するサービス -->
-        <service
-            android:name=".WidgetRemoteViewsService"
-            android:permission="android.permission.BIND_REMOTEVIEWS"
-            android:exported="false" />
     </application>
 </manifest>

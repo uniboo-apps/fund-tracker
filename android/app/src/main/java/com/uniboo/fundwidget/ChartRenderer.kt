@@ -8,11 +8,8 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import java.util.Locale
-import kotlin.math.floor
-import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.pow
 
 /** Web 版 renderWidget を Canvas に移植。サイズ(FULL/MEDIUM/COMPACT)と明暗(ダークモード)で描き分ける。 */
 object ChartRenderer {
@@ -59,7 +56,7 @@ object ChartRenderer {
         dotRing = Color.parseColor("#1b1e1b")
     )
 
-    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode, dark: Boolean): Bitmap {
+    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode, dark: Boolean, showTheme: Boolean = false): Bitmap {
         val pal = if (dark) DARK else LIGHT
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -84,7 +81,7 @@ object ChartRenderer {
 
         when (mode) {
             Mode.COMPACT -> drawCompact(c, key, fs, root, last, chg, pc, accent, W, H, pal)
-            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal)
+            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal, dark, showTheme)
         }
         return bmp
     }
@@ -105,7 +102,7 @@ object ChartRenderer {
     private fun drawCard(
         c: Canvas, key: String, fs: FundSeries, root: Root,
         last: Double, chg: Double, pc: Double, accent: Int,
-        W: Int, H: Int, mode: Mode, pal: Palette
+        W: Int, H: Int, mode: Mode, pal: Palette, dark: Boolean, showTheme: Boolean
     ) {
         val full = mode == Mode.FULL
         val targetW = if (full) 340f else 300f
@@ -155,6 +152,48 @@ object ChartRenderer {
         c.drawText(valStr, m, valBase, valueP)
         val vW = valueP.measureText(valStr)
         c.drawText(chgStr(chg), m + vW + 10f * u, valBase, textPaint(BOLD, (if (full) 17f else 15f) * u, accent))
+
+        // 右下：テーマ切替ボタン（ライト=太陽 / ダーク=月）
+        if (showTheme) drawThemeBtn(c, W, H, u, dark)
+    }
+
+    /** 右下に置くライト/ダーク切替ボタン。現在のテーマを表すアイコンを描く。 */
+    private fun drawThemeBtn(c: Canvas, W: Int, H: Int, u: Float, dark: Boolean) {
+        val sz = 26f * u
+        val mg = 11f * u
+        val left = W - mg - sz
+        val top = H - mg - sz
+        val rect = RectF(left, top, left + sz, top + sz)
+        val panel = if (dark) Color.parseColor("#2c302c") else Color.WHITE
+        c.drawRoundRect(rect, sz * 0.3f, sz * 0.3f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = panel })
+        c.drawRoundRect(rect, sz * 0.3f, sz * 0.3f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = 1f * u
+            color = if (dark) Color.argb(60, 255, 255, 255) else Color.argb(40, 0, 0, 0)
+        })
+        val cx = rect.centerX(); val cy = rect.centerY(); val r = sz * 0.24f
+        if (dark) {
+            // 月（クリックでライトへ）
+            val moon = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#e6e9e6") }
+            c.drawCircle(cx, cy, r, moon)
+            c.drawCircle(cx + r * 0.55f, cy - r * 0.35f, r * 0.95f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = panel })
+        } else {
+            // 太陽（クリックでダークへ）
+            val sun = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#f5a623") }
+            c.drawCircle(cx, cy, r * 0.62f, sun)
+            val ray = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE; strokeWidth = 2f * u; strokeCap = Paint.Cap.ROUND
+                color = Color.parseColor("#f5a623")
+            }
+            for (k in 0 until 8) {
+                val a = Math.PI / 4 * k
+                val sx = (cx + Math.cos(a) * r * 0.85).toFloat()
+                val sy = (cy + Math.sin(a) * r * 0.85).toFloat()
+                val ex = (cx + Math.cos(a) * r * 1.18).toFloat()
+                val ey = (cy + Math.sin(a) * r * 1.18).toFloat()
+                c.drawLine(sx, sy, ex, ey, ray)
+            }
+        }
     }
 
     /** 折れ線＋目盛り＋黄色帯＋ピル＋（必要なら）日付軸 */
@@ -172,17 +211,18 @@ object ChartRenderer {
         fun xAt(i: Int) = plot.left + (i / (cnt - 1f)) * (plot.right - plot.left)
         fun yAt(v: Double) = (plot.top + (1 - (v - lo) / (hi - lo)) * (plot.bottom - plot.top)).toFloat()
 
-        // 目盛り
-        val step = niceNum((hi - lo) / 3.0, true)
-        val levels = ArrayList<Double>()
-        var g = Math.ceil(lo / step) * step
-        while (g <= hi) { levels.add(g); g += step }
+        // 目盛り（線は固定位置に引く＝銘柄を切り替えても横線の高さが揃う）
+        // ラベルはその高さに対応する各銘柄の価格（上=シアン, 下=ピンク, 中間2本=グレー）
+        val fracs = floatArrayOf(0f, 1f / 3f, 2f / 3f, 1f)
         val gridP = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
         val lblP = textPaint(SANS, 11f * u, pal.date).apply { textAlign = Paint.Align.LEFT }
-        for (i in levels.indices) {
-            val ly = yAt(levels[i])
-            val top = i == levels.size - 1
-            val bot = i == 0
+        val plotH = plot.bottom - plot.top
+        for (i in fracs.indices) {
+            val f = fracs[i]
+            val ly = plot.top + f * plotH
+            val value = hi - f * (hi - lo)
+            val top = i == 0
+            val bot = i == fracs.size - 1
             gridP.color = when {
                 top -> Color.argb(217, 25, 195, 214)
                 bot -> Color.argb(217, 240, 110, 160)
@@ -195,7 +235,7 @@ object ChartRenderer {
                 bot -> pal.pink
                 else -> pal.date
             }
-            c.drawText(comma(Math.round(levels[i])), plot.right + 5f * u, ly - (lblP.descent() + lblP.ascent()) / 2f, lblP)
+            c.drawText(comma(Math.round(value)), plot.right + 5f * u, ly - (lblP.descent() + lblP.ascent()) / 2f, lblP)
         }
 
         // 黄色帯（直近14日レンジ）
@@ -340,17 +380,6 @@ object ChartRenderer {
     private fun fmtMD(s: String): String = try {
         "${s.substring(5, 7).toInt()}/${s.substring(8, 10).toInt()}"
     } catch (e: Exception) { s }
-
-    private fun niceNum(range: Double, round: Boolean): Double {
-        val exp = floor(log10(range))
-        val fr = range / 10.0.pow(exp)
-        val nf = if (round) {
-            if (fr < 1.5) 1.0 else if (fr < 3) 2.0 else if (fr < 7) 5.0 else 10.0
-        } else {
-            if (fr <= 1) 1.0 else if (fr <= 2) 2.0 else if (fr <= 5) 5.0 else 10.0
-        }
-        return nf * 10.0.pow(exp)
-    }
 
     private fun drawFlag(c: Canvas, key: String, x: Float, y: Float, w: Float, h: Float, u: Float) {
         val r = 4f * u

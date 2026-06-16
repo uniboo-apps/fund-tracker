@@ -6,9 +6,9 @@ Web版（index.html）の CFD 風カードを Canvas で画像描画して Remot
 ## できること
 - ホーム画面ウィジェットに CFD 風カードを表示（旗＋名前＋変動率＋ミニチャート＋最新値ピル＋日付軸＋更新情報）
 - **小・中・大の3サイズ**をウィジェット一覧から選択（`FundWidgetSmall/Medium/Large` の3 provider、描画は `ChartRenderer.Mode` COMPACT/MEDIUM/FULL で出し分け）
-- **上下スワイプで S&P500 ⇄ オルカン を切替**（`StackView` のカードめくり）
-- **タップでアプリ(MainActivity)を起動**
-- **ダークモード自動対応**（端末のダーク設定に追従、`ChartRenderer` が明/暗パレットで描画）
+- **タップで S&P500 ⇄ オルカン を切替**
+- **ライト/ダークを手動切替**（中・大の右下 ☀／🌙 ボタン。既定はライト＝白）
+- **横軸の目盛り線は固定位置**（銘柄を切り替えても線の高さが揃う。ラベルは各銘柄の価格）
 - 約6時間ごと＋アプリ起動時に自動更新（オフライン時は前回キャッシュ）
 - データは `https://raw.githubusercontent.com/uniboo-apps/fund-tracker/main/data.js` を直接取得（認証不要）
 
@@ -22,16 +22,15 @@ Release `widget-latest` に `fund-widget.apk` を添付する。
 3. ホーム画面長押し → ウィジェット → 「ファンドウィジェット」を配置
 
 ## 構成
-- `FundWidgetProvider.kt` … AppWidgetProvider。StackView アダプタ設定・タップ起動テンプレート・更新
-- `WidgetRemoteViewsService.kt` … StackView の各カード(2ファンド)を供給。サイズ/明暗を判定して Bitmap 化
+- `FundWidgetProvider.kt` … AppWidgetProvider。タップ=銘柄切替 / 右下ボタン=テーマ切替・サイズ算出・更新
 - `DataRepo.kt` … data.js を取得・パース（キャッシュ付き）
-- `ChartRenderer.kt` … Canvas でカードを Bitmap 描画。明/暗パレット対応（Web版 renderWidget の移植）
+- `ChartRenderer.kt` … Canvas でカードを Bitmap 描画。明/暗 Palette 対応＋テーマボタン描画（Web版 renderWidget の移植）
 - `MainActivity.kt` … 使い方を表示＋起動時にウィジェットを更新
 
 ## 操作
-- **スワイプ（上下）**＝銘柄切替（StackView のカードめくり。任意スワイプ検知は不可なので StackView を採用）
-- **タップ**＝アプリ起動
-- ダークモードは端末設定に追従
+- **タップ**＝S&P500 ⇄ オルカン 切替（全サイズ）
+- **右下の ☀／🌙 ボタン**＝ライト／ダーク切替（中・大のみ。SharedPreferences に保存、既定ライト）
+- 横線は固定位置で両銘柄を揃え、ラベルにその高さの価格を表示
 
 ## メモ
 - RemoteViews のビットマップ転送上限のため、描画サイズは最大 520×420px にクランプ
