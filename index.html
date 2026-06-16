@@ -87,6 +87,25 @@
   .mbtn-danger{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b}
   .mbtn-cancel{background:var(--panel2);color:var(--sub);border:1px solid var(--line)}
   .mbtn-share{background:var(--panel2);color:#22d3ee;border:1px solid #22d3ee}
+
+  /* --- CFD風ウィジェット（スクショ再現・明るいカード） --- */
+  .cfd{background:#eef0ee;border-radius:18px;padding:12px 14px 14px;margin-bottom:16px;
+    box-shadow:0 2px 10px rgba(0,0,0,.35);max-width:340px;color:#1a1a1a;
+    font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
+  .cfd-top{display:flex;align-items:center;gap:7px;font-weight:700}
+  .cfd-flag{display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:20px;border-radius:4px;background:#fff;font-size:14px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.12);overflow:hidden;line-height:1}
+  .cfd-name{font-size:19px;color:#1f9e4d;letter-spacing:.3px}
+  .cfd-tag{font-size:12px;color:#8a8f8a;font-weight:700;letter-spacing:1px}
+  .cfd-pct{font-size:30px;font-weight:800;color:#1f9e4d;line-height:1.15;margin:1px 0 2px}
+  .cfd-pct.dn{color:#e23b3b}
+  .cfd-chartwrap{position:relative;width:100%;height:120px}
+  .cfd-chartwrap canvas{width:100%;height:100%;display:block}
+  .cfd-bot{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+  .cfd-val{font-size:26px;font-weight:800;color:#111;letter-spacing:.5px}
+  .cfd-chg{font-size:17px;font-weight:700;color:#1f9e4d}
+  .cfd-chg.dn{color:#e23b3b}
 </style>
 </head>
 <body>
@@ -102,6 +121,23 @@
     </div>
   </div>
   <div class="upd-msg" id="updMsg"></div>
+
+  <!-- CFD風ウィジェット（スクショ再現） -->
+  <div class="cfd" id="cfd">
+    <div class="cfd-top">
+      <span class="cfd-flag" id="cfdFlag">🇺🇸</span>
+      <span class="cfd-name" id="cfdName">S&amp;P500</span>
+      <span class="cfd-tag">CFD</span>
+    </div>
+    <div class="cfd-pct" id="cfdPct">+0.00%</div>
+    <div class="cfd-chartwrap">
+      <canvas id="cfdCanvas"></canvas>
+    </div>
+    <div class="cfd-bot">
+      <span class="cfd-val" id="cfdVal">0</span>
+      <span class="cfd-chg" id="cfdChg">+0</span>
+    </div>
+  </div>
 
   <div class="tabs" id="tabs"></div>
   <div class="fundname" id="fundname"></div>
@@ -211,6 +247,87 @@ function idxAt(series,dateStr){
   return ans;
 }
 
+// 「きりの良い」目盛り幅
+function niceNum(range,round){
+  const exp=Math.floor(Math.log10(range)), fr=range/Math.pow(10,exp);
+  let nf;
+  if(round) nf = fr<1.5?1: fr<3?2: fr<7?5:10;
+  else      nf = fr<=1?1: fr<=2?2: fr<=5?5:10;
+  return nf*Math.pow(10,exp);
+}
+
+// CFD風ウィジェットを描画（スクショ再現）
+function renderWidget(f){
+  const cv=document.getElementById('cfdCanvas');
+  if(!cv) return;
+  const isUS = curKey==='sp500';
+  document.getElementById('cfdFlag').textContent = isUS ? '🇺🇸' : '🌍';
+  document.getElementById('cfdName').textContent = isUS ? 'S&P500' : 'ACWI';
+
+  const series=f.index, n=series.length;
+  const last=series[n-1][1], prev=series[n-2][1];
+  const chg=last-prev, pc=chg/prev*100, up=chg>=0;
+
+  const pctEl=document.getElementById('cfdPct');
+  pctEl.textContent=(pc>=0?'+':'')+pc.toFixed(2)+'%';
+  pctEl.className='cfd-pct'+(up?'':' dn');
+  document.getElementById('cfdVal').textContent=Math.round(last).toLocaleString('en-US');
+  const chgEl=document.getElementById('cfdChg');
+  chgEl.textContent=(chg>=0?'+':'')+Math.round(chg);
+  chgEl.className='cfd-chg'+(up?'':' dn');
+
+  // 直近60営業日を表示
+  const win=series.slice(Math.max(0,n-60));
+  const vals=win.map(p=>p[1]);
+
+  const dpr=window.devicePixelRatio||1;
+  const cssW=cv.clientWidth||300, cssH=cv.clientHeight||120;
+  cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const padL=2, padR=44, padT=10, padB=6;
+  const plotW=cssW-padL-padR, plotH=cssH-padT-padB;
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  const span=(hi-lo)||1; lo-=span*0.12; hi+=span*0.12;
+  const X=i=> padL + (i/(vals.length-1))*plotW;
+  const Y=v=> padT + (1-(v-lo)/(hi-lo))*plotH;
+
+  // 価格目盛り（上＝シアン / 下＝ピンク / 中間＝薄グレー）
+  const step=niceNum((hi-lo)/3,true);
+  const levels=[];
+  for(let g=Math.ceil(lo/step)*step; g<=hi; g+=step) levels.push(g);
+  ctx.font='11px Helvetica,Arial,sans-serif';
+  ctx.textBaseline='middle'; ctx.textAlign='left';
+  levels.forEach((lv,i)=>{
+    const y=Y(lv), top=i===levels.length-1, bot=i===0;
+    ctx.strokeStyle = top?'rgba(25,195,214,.85)' : bot?'rgba(240,110,160,.85)' : 'rgba(150,150,150,.22)';
+    ctx.lineWidth = (top||bot)?1.2:1;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke();
+    ctx.fillStyle = top?'#0fb6c9' : bot?'#e85a93' : '#7a7f7a';
+    ctx.fillText(Math.round(lv).toLocaleString('en-US'), padL+plotW+5, y);
+  });
+
+  // 黄色帯＝直近14日のレンジ（高値〜安値）
+  const rW=Math.min(14,vals.length), rStart=vals.length-rW, rv=vals.slice(rStart);
+  const rHi=Math.max(...rv), rLo=Math.min(...rv);
+  const bx=X(rStart), by=Y(rHi), bw=padL+plotW-bx, bh=Y(rLo)-Y(rHi);
+  ctx.fillStyle='rgba(245,205,70,.30)'; ctx.fillRect(bx,by,bw,Math.max(bh,2));
+  ctx.strokeStyle='rgba(220,180,40,.55)'; ctx.lineWidth=1; ctx.strokeRect(bx,by,bw,Math.max(bh,2));
+
+  // 価格ライン
+  ctx.beginPath();
+  vals.forEach((v,i)=>{ const x=X(i),y=Y(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.strokeStyle='#2f6df0'; ctx.lineWidth=1.6; ctx.lineJoin='round'; ctx.stroke();
+
+  // 末端のドット＋最新値タグ
+  const ex=X(vals.length-1), ey=Y(last);
+  ctx.fillStyle='#2f6df0'; ctx.beginPath(); ctx.arc(ex,ey,2.6,0,Math.PI*2); ctx.fill();
+  ctx.font='bold 11px Helvetica,Arial,sans-serif'; ctx.fillStyle='#111'; ctx.textAlign='left';
+  ctx.fillText(Math.round(last).toLocaleString('en-US'), Math.min(ex+4,padL+plotW+5), ey-2);
+}
+
 function setupTabs(){
   const tabs=document.getElementById('tabs');
   Object.keys(DATA.funds).forEach((k,i)=>{
@@ -247,6 +364,7 @@ function badgeFor(dd){ // dd: 下落率(負の数)
 function render(){
   const f=DATA.funds[curKey];
   document.getElementById('fundname').textContent=f.name+'（協会コード '+f.code+'）';
+  renderWidget(f);
 
   // --- 全期間の基準価額 ---
   const navDates=f.nav.map(p=>p[0]);
@@ -380,6 +498,7 @@ document.getElementById('tIdx').onchange=()=>{saveToggles();render();};
 setupTabs();
 setupPeriods();
 render();
+window.addEventListener('resize',()=>{ if(curKey) renderWidget(DATA.funds[curKey]); });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
