@@ -100,8 +100,9 @@
   .cfd-tag{font-size:12px;color:#8a8f8a;font-weight:700;letter-spacing:1px}
   .cfd-pct{font-size:30px;font-weight:800;color:#1f9e4d;line-height:1.15;margin:1px 0 2px}
   .cfd-pct.dn{color:#e23b3b}
-  .cfd-chartwrap{position:relative;width:100%;height:138px}
+  .cfd-chartwrap{position:relative;width:100%;height:138px;cursor:pointer}
   .cfd-chartwrap canvas{width:100%;height:100%;display:block}
+  .cfd-hint{font-size:11px;color:#8a8f8a;margin-top:3px;user-select:none}
   .cfd-bot{display:flex;align-items:baseline;gap:10px;margin-top:4px}
   .cfd-val{font-size:26px;font-weight:800;color:#111;letter-spacing:.5px}
   .cfd-chg{font-size:17px;font-weight:700;color:#1f9e4d}
@@ -133,6 +134,7 @@
     <div class="cfd-chartwrap">
       <canvas id="cfdCanvas"></canvas>
     </div>
+    <div class="cfd-hint" id="cfdHint">🔍 タップで直近14日を拡大</div>
     <div class="cfd-bot">
       <span class="cfd-val" id="cfdVal">0</span>
       <span class="cfd-chg" id="cfdChg">+0</span>
@@ -202,7 +204,7 @@
 <script src="data.js"></script>
 <script>
 const COLORS={nav:'#3b82f6',ma1:'#f59e0b',ma2:'#a855f7',ma3:'#64748b',idx:'#22d3ee'};
-let curKey=null, curDays=365, chart=null;
+let curKey=null, curDays=365, chart=null, cfdZoom=false;
 
 const fmt=n=>n.toLocaleString('ja-JP');
 const pct=n=>(n>=0?'+':'')+n.toFixed(2)+'%';
@@ -287,9 +289,11 @@ function renderWidget(f){
   chgEl.textContent=(chg>=0?'+':'')+Math.round(chg);
   chgEl.className='cfd-chg'+(up?'':' dn');
 
-  // 直近60営業日を表示
-  const win=series.slice(Math.max(0,n-60));
+  // 表示期間：通常は直近60営業日、拡大時は黄色帯と同じ直近14営業日
+  const win=series.slice(Math.max(0, n-(cfdZoom?14:60)));
   const vals=win.map(p=>p[1]);
+  document.getElementById('cfdHint').textContent =
+    cfdZoom ? '🔙 タップで全体（60日）に戻る' : '🔍 タップで直近14日を拡大';
 
   const dpr=window.devicePixelRatio||1;
   const cssW=cv.clientWidth||300, cssH=cv.clientHeight||120;
@@ -320,12 +324,14 @@ function renderWidget(f){
     ctx.fillText(Math.round(lv).toLocaleString('en-US'), padL+plotW+5, y);
   });
 
-  // 黄色帯＝直近14日のレンジ（高値〜安値）
-  const rW=Math.min(14,vals.length), rStart=vals.length-rW, rv=vals.slice(rStart);
-  const rHi=Math.max(...rv), rLo=Math.min(...rv);
-  const bx=X(rStart), by=Y(rHi), bw=padL+plotW-bx, bh=Y(rLo)-Y(rHi);
-  ctx.fillStyle='rgba(245,205,70,.30)'; ctx.fillRect(bx,by,bw,Math.max(bh,2));
-  ctx.strokeStyle='rgba(220,180,40,.55)'; ctx.lineWidth=1; ctx.strokeRect(bx,by,bw,Math.max(bh,2));
+  // 黄色帯＝直近14日のレンジ（高値〜安値）。拡大中は全体がその範囲なので非表示
+  if(!cfdZoom){
+    const rW=Math.min(14,vals.length), rStart=vals.length-rW, rv=vals.slice(rStart);
+    const rHi=Math.max(...rv), rLo=Math.min(...rv);
+    const bx=X(rStart), by=Y(rHi), bw=padL+plotW-bx, bh=Y(rLo)-Y(rHi);
+    ctx.fillStyle='rgba(245,205,70,.30)'; ctx.fillRect(bx,by,bw,Math.max(bh,2));
+    ctx.strokeStyle='rgba(220,180,40,.55)'; ctx.lineWidth=1; ctx.strokeRect(bx,by,bw,Math.max(bh,2));
+  }
 
   // 価格ライン
   ctx.beginPath();
@@ -531,6 +537,11 @@ setupTabs();
 setupPeriods();
 render();
 window.addEventListener('resize',()=>{ if(curKey) renderWidget(DATA.funds[curKey]); });
+// チャットタップで「直近14日を拡大 ⇄ 全体」をトグル
+document.getElementById('cfdCanvas').addEventListener('click',()=>{
+  cfdZoom=!cfdZoom;
+  if(curKey) renderWidget(DATA.funds[curKey]);
+});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
