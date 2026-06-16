@@ -56,7 +56,7 @@ object ChartRenderer {
         dotRing = Color.parseColor("#1b1e1b")
     )
 
-    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode, dark: Boolean, showTheme: Boolean = false): Bitmap {
+    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode, dark: Boolean): Bitmap {
         val pal = if (dark) DARK else LIGHT
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -81,7 +81,7 @@ object ChartRenderer {
 
         when (mode) {
             Mode.COMPACT -> drawCompact(c, key, fs, root, last, chg, pc, accent, W, H, pal)
-            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal, dark, showTheme)
+            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal)
         }
         return bmp
     }
@@ -102,7 +102,7 @@ object ChartRenderer {
     private fun drawCard(
         c: Canvas, key: String, fs: FundSeries, root: Root,
         last: Double, chg: Double, pc: Double, accent: Int,
-        W: Int, H: Int, mode: Mode, pal: Palette, dark: Boolean, showTheme: Boolean
+        W: Int, H: Int, mode: Mode, pal: Palette
     ) {
         val full = mode == Mode.FULL
         val targetW = if (full) 340f else 300f
@@ -153,47 +153,32 @@ object ChartRenderer {
         val vW = valueP.measureText(valStr)
         c.drawText(chgStr(chg), m + vW + 10f * u, valBase, textPaint(BOLD, (if (full) 17f else 15f) * u, accent))
 
-        // 右下：テーマ切替ボタン（ライト=太陽 / ダーク=月）
-        if (showTheme) drawThemeBtn(c, W, H, u, dark)
+        // 右下：ドル円（USD/JPY）
+        root.usdjpy?.let { if (it.vals.size >= 2) drawFx(c, it, m, W, H, u, full, pal) }
     }
 
-    /** 右下に置くライト/ダーク切替ボタン。現在のテーマを表すアイコンを描く。 */
-    private fun drawThemeBtn(c: Canvas, W: Int, H: Int, u: Float, dark: Boolean) {
-        val sz = 26f * u
-        val mg = 11f * u
-        val left = W - mg - sz
-        val top = H - mg - sz
-        val rect = RectF(left, top, left + sz, top + sz)
-        val panel = if (dark) Color.parseColor("#2c302c") else Color.WHITE
-        c.drawRoundRect(rect, sz * 0.3f, sz * 0.3f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = panel })
-        c.drawRoundRect(rect, sz * 0.3f, sz * 0.3f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; strokeWidth = 1f * u
-            color = if (dark) Color.argb(60, 255, 255, 255) else Color.argb(40, 0, 0, 0)
-        })
-        val cx = rect.centerX(); val cy = rect.centerY(); val r = sz * 0.24f
-        if (dark) {
-            // 月（クリックでライトへ）
-            val moon = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#e6e9e6") }
-            c.drawCircle(cx, cy, r, moon)
-            c.drawCircle(cx + r * 0.55f, cy - r * 0.35f, r * 0.95f,
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = panel })
-        } else {
-            // 太陽（クリックでダークへ）
-            val sun = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#f5a623") }
-            c.drawCircle(cx, cy, r * 0.62f, sun)
-            val ray = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE; strokeWidth = 2f * u; strokeCap = Paint.Cap.ROUND
-                color = Color.parseColor("#f5a623")
-            }
-            for (k in 0 until 8) {
-                val a = Math.PI / 4 * k
-                val sx = (cx + Math.cos(a) * r * 0.85).toFloat()
-                val sy = (cy + Math.sin(a) * r * 0.85).toFloat()
-                val ex = (cx + Math.cos(a) * r * 1.18).toFloat()
-                val ey = (cy + Math.sin(a) * r * 1.18).toFloat()
-                c.drawLine(sx, sy, ex, ey, ray)
-            }
-        }
+    /** 右下にドル円の最新値＋前日比を小さく表示 */
+    private fun drawFx(c: Canvas, fx: FundSeries, m: Float, W: Int, H: Int, u: Float, full: Boolean, pal: Palette) {
+        val last = fx.vals[fx.vals.size - 1]
+        val prev = fx.vals[fx.vals.size - 2]
+        val d = last - prev
+        val accent = if (d >= 0) pal.green else pal.red
+        val rightX = W - m
+
+        val valStr = String.format(Locale.US, "%.2f", last)
+        val chStr = (if (d >= 0) "+" else "") + String.format(Locale.US, "%.2f", d)
+
+        val valP = textPaint(BOLD, (if (full) 15f else 14f) * u, pal.value).apply { textAlign = Paint.Align.RIGHT }
+        val chP = textPaint(BOLD, (if (full) 11f else 10f) * u, accent).apply { textAlign = Paint.Align.RIGHT }
+        val labP = textPaint(BOLD, (if (full) 10f else 9f) * u, pal.tag).apply { textAlign = Paint.Align.RIGHT }
+
+        val l2Base = H - m - valP.descent()
+        val chW = chP.measureText(chStr)
+        c.drawText(chStr, rightX, l2Base, chP)
+        c.drawText(valStr, rightX - chW - 5f * u, l2Base, valP)
+
+        val l1Base = l2Base + valP.ascent() - 2f * u - labP.descent()
+        c.drawText("ドル円", rightX, l1Base, labP)
     }
 
     /** 折れ線＋目盛り＋黄色帯＋ピル＋（必要なら）日付軸 */

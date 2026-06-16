@@ -19,9 +19,10 @@
             </intent-filter>
         </activity>
 
+        <!-- 小（ライト / ダーク） -->
         <receiver
-            android:name=".FundWidgetSmall"
-            android:label="ファンドウィジェット（小）"
+            android:name=".FundWidgetSmallLight"
+            android:label="ファンド（小・ライト）"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -32,8 +33,35 @@
         </receiver>
 
         <receiver
-            android:name=".FundWidgetMedium"
-            android:label="ファンドウィジェット（中）"
+            android:name=".FundWidgetSmallDark"
+            android:label="ファンド（小・ダーク）"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <!-- 中（ライト / ダーク）。ライト版が toggle のブロードキャスト受信担当 -->
+        <receiver
+            android:name=".FundWidgetMediumLight"
+            android:label="ファンド（中・ライト）"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.uniboo.fundwidget.TOGGLE" />
+                <action android:name="com.uniboo.fundwidget.REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_medium" />
+        </receiver>
+
+        <receiver
+            android:name=".FundWidgetMediumDark"
+            android:label="ファンド（中・ダーク）"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -43,15 +71,25 @@
                 android:resource="@xml/widget_info_medium" />
         </receiver>
 
+        <!-- 大（ライト / ダーク） -->
         <receiver
-            android:name=".FundWidgetLarge"
-            android:label="ファンドウィジェット（大）"
+            android:name=".FundWidgetLargeLight"
+            android:label="ファンド（大・ライト）"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.uniboo.fundwidget.TOGGLE" />
-                <action android:name="com.uniboo.fundwidget.THEME" />
-                <action android:name="com.uniboo.fundwidget.REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".FundWidgetLargeDark"
+            android:label="ファンド（大・ダーク）"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

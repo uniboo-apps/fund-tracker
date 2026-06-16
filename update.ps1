@@ -34,6 +34,9 @@ $funds = @(
   }
 )
 
+# 為替（ウィジェット右下に表示）。Yahoo Finance の USD/JPY = "JPY=X"
+$fx = [ordered]@{ key = "usdjpy"; name = "ドル/円"; indexSym = "JPY=X" }
+
 # --- 基準価額 CSV を取得・パース ----------------------------------
 function Get-Nav($isin, $code) {
   $u = "https://toushin-lib.fwg.ne.jp/FdsWeb/FDST030000/csv-file-download?isinCd=$isin&associFundCd=$code"
@@ -100,6 +103,18 @@ foreach ($f in $funds) {
   $parts.Add($block)
 }
 
+Write-Host ("取得中: " + $fx.name + " ...") -NoNewline
+$fxIdx = Get-Index $fx.indexSym
+Write-Host (" {0}日" -f $fxIdx.Count)
+$fxBlock = @"
+  "fx": {
+    "usdjpy": {
+      "name": "$($fx.name)",
+      "index": $(To-JsSeries $fxIdx)
+    }
+  }
+"@
+
 $now = (Get-Date).ToString("yyyy-MM-dd HH:mm")
 $js = @"
 // 自動生成ファイル — 直接編集しないでください（update.ps1 が上書きします）
@@ -107,7 +122,8 @@ window.DATA = {
   "generatedAt": "$now",
   "funds": {
 $([string]::Join(",`n", $parts))
-  }
+  },
+$fxBlock
 };
 "@
 

@@ -14,10 +14,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 起動のたびにウィジェットを最新化（タップで開く＝この経路で更新）
-        for (cls in listOf(FundWidgetSmall::class.java, FundWidgetMedium::class.java, FundWidgetLarge::class.java)) {
-            sendBroadcast(Intent(this, cls).apply { action = FundWidgetBase.ACTION_REFRESH })
-        }
+        // 起動のたびにウィジェットを最新化（1 receiver の REFRESH で全サイズ・全テーマを更新）
+        sendBroadcast(Intent(this, FundWidgetMediumLight::class.java).apply {
+            action = FundWidgetBase.ACTION_REFRESH
+        })
 
         val tv = TextView(this).apply {
             text = """
@@ -25,9 +25,9 @@ class MainActivity : Activity() {
 
                 ■ 使い方
                 1. ホーム画面を長押し →「ウィジェット」を開く
-                2.「ファンドウィジェット（小／中／大）」から好きな大きさを配置
+                2. 候補から好きな「サイズ × テーマ」を選んで配置
+                   　小／中／大 × ライト／ダーク の 6 種類
                 3. ウィジェットをタップ → S&P500 ⇄ オルカン を切替
-                4. 右下の ☀／🌙 ボタンをタップ → ライト／ダークを切替（中・大のみ）
 
                 ■ サイズ
                 ・大… 旗＋変動率＋チャート＋日付軸＋更新情報（フル表示）
@@ -36,7 +36,8 @@ class MainActivity : Activity() {
                 ※ 配置後にウィジェットの枠をドラッグしてサイズ調整も可
 
                 ■ 仕様
-                ・テーマは手動切替（既定はライト＝白）。中・大の右下ボタンで切替
+                ・テーマ（ライト/ダーク）は配置時に候補から選んで固定
+                ・中・大の右下に「ドル円（USD/JPY）」を表示
                 ・横軸の目盛り線は固定位置（銘柄を切り替えても高さが揃う）
                 ・指数データは fund-tracker の公開データを自動取得
                 ・約6時間ごと＋アプリ起動時に自動更新

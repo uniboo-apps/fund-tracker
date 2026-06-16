@@ -9,7 +9,11 @@ import java.net.URL
 data class FundSeries(val dates: List<String>, val vals: List<Double>)
 
 /** data.js をパースした結果 */
-data class Root(val generatedAt: String, val funds: Map<String, FundSeries>)
+data class Root(
+    val generatedAt: String,
+    val funds: Map<String, FundSeries>,
+    val usdjpy: FundSeries? = null
+)
 
 object DataRepo {
 
@@ -75,6 +79,18 @@ object DataRepo {
             }
             map[key] = FundSeries(dates, vals)
         }
-        return Root(gen, map)
+        // 為替（任意）: fx.usdjpy.index
+        val usdjpy = runCatching {
+            val idx = obj.getJSONObject("fx").getJSONObject("usdjpy").getJSONArray("index")
+            val dates = ArrayList<String>(idx.length())
+            val vals = ArrayList<Double>(idx.length())
+            for (i in 0 until idx.length()) {
+                val p = idx.getJSONArray(i)
+                dates.add(p.getString(0))
+                vals.add(p.getDouble(1))
+            }
+            FundSeries(dates, vals)
+        }.getOrNull()
+        return Root(gen, map, usdjpy)
     }
 }

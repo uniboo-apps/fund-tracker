@@ -30,6 +30,9 @@ FUNDS = [
     ),
 ]
 
+# 為替（ウィジェット右下に表示）。Yahoo Finance の USD/JPY = "JPY=X"
+FX = dict(key="usdjpy", name="ドル/円", indexSym="JPY=X")
+
 
 def get_nav(isin, code):
     url = (
@@ -88,13 +91,31 @@ for f in FUNDS:
         f'  }}'
     )
 
+print("Fetching USD/JPY ...", end=" ", flush=True)
+try:
+    fx = get_index(FX["indexSym"])
+except Exception as e:
+    print(f"FAILED: {e}", file=sys.stderr)
+    sys.exit(1)
+print(f"{len(fx)} days")
+
+fx_block = (
+    '  "fx": {\n'
+    f'    "usdjpy": {{\n'
+    f'      "name": "{FX["name"]}",\n'
+    f'      "index": {to_js_series(fx)}\n'
+    f'    }}\n'
+    '  }'
+)
+
 js = (
     "// Auto-generated -- do not edit (overwritten by update workflow)\n"
     "window.DATA = {\n"
     f'  "generatedAt": "{now}",\n'
     '  "funds": {\n'
     + ",\n".join(blocks) + "\n"
-    "  }\n"
+    "  },\n"
+    + fx_block + "\n"
     "};\n"
 )
 
