@@ -15,3 +15,4 @@
 ## ルール
 - **public なので秘密を置かない**（使用APIは全て公開・キー不要）。
 - `data.js` は自動生成。手で編集しない。
+- **コード変更後は確認なしに `git commit & push`**（kazoku/pcloud と同じ自動デプロイ扱い）。コミットメッセージは **ASCII** で書く。push が `rejected` になったら Actions の `data.js` 自動更新が原因 → `git pull --rebase origin main` してから push。
