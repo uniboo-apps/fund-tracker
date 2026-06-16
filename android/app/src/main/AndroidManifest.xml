@@ -20,7 +20,32 @@
         </activity>
 
         <receiver
-            android:name=".FundWidgetProvider"
+            android:name=".FundWidgetSmall"
+            android:label="ファンドウィジェット（小）"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <receiver
+            android:name=".FundWidgetMedium"
+            android:label="ファンドウィジェット（中）"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_medium" />
+        </receiver>
+
+        <receiver
+            android:name=".FundWidgetLarge"
+            android:label="ファンドウィジェット（大）"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

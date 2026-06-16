@@ -5,6 +5,7 @@ Web版（index.html）の CFD 風カードを Canvas で画像描画して Remot
 
 ## できること
 - ホーム画面ウィジェットに CFD 風カードを表示（旗＋名前＋変動率＋ミニチャート＋最新値ピル＋日付軸＋更新情報）
+- **小・中・大の3サイズ**をウィジェット一覧から選択（`FundWidgetSmall/Medium/Large` の3 provider、描画は `ChartRenderer.Mode` COMPACT/MEDIUM/FULL で出し分け）
 - **タップで S&P500 ⇄ オルカン を切替**
 - 約6時間ごと＋タップ時に自動更新（オフライン時は前回キャッシュ）
 - データは `https://raw.githubusercontent.com/uniboo-apps/fund-tracker/main/data.js` を直接取得（認証不要）
