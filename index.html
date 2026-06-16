@@ -100,7 +100,7 @@
   .cfd-tag{font-size:12px;color:#8a8f8a;font-weight:700;letter-spacing:1px}
   .cfd-pct{font-size:30px;font-weight:800;color:#1f9e4d;line-height:1.15;margin:1px 0 2px}
   .cfd-pct.dn{color:#e23b3b}
-  .cfd-chartwrap{position:relative;width:100%;height:120px}
+  .cfd-chartwrap{position:relative;width:100%;height:138px}
   .cfd-chartwrap canvas{width:100%;height:100%;display:block}
   .cfd-bot{display:flex;align-items:baseline;gap:10px;margin-top:4px}
   .cfd-val{font-size:26px;font-weight:800;color:#111;letter-spacing:.5px}
@@ -287,7 +287,7 @@ function renderWidget(f){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,cssW,cssH);
 
-  const padL=2, padR=44, padT=10, padB=6;
+  const padL=2, padR=44, padT=10, padB=20;
   const plotW=cssW-padL-padR, plotH=cssH-padT-padB;
   let lo=Math.min(...vals), hi=Math.max(...vals);
   const span=(hi-lo)||1; lo-=span*0.12; hi+=span*0.12;
@@ -326,6 +326,17 @@ function renderWidget(f){
   ctx.fillStyle='#2f6df0'; ctx.beginPath(); ctx.arc(ex,ey,2.6,0,Math.PI*2); ctx.fill();
   ctx.font='bold 11px Helvetica,Arial,sans-serif'; ctx.fillStyle='#111'; ctx.textAlign='left';
   ctx.fillText(Math.round(last).toLocaleString('en-US'), Math.min(ex+4,padL+plotW+5), ey-2);
+
+  // 横軸の日付ラベル（M/D）
+  const dates=win.map(p=>p[0]);
+  ctx.font='10px Helvetica,Arial,sans-serif'; ctx.fillStyle='#7a7f7a'; ctx.textBaseline='top';
+  const ticks=4;
+  for(let t=0;t<ticks;t++){
+    const i=Math.round(t*(vals.length-1)/(ticks-1));
+    const d=dates[i], md=(+d.slice(5,7))+'/'+(+d.slice(8,10)), x=X(i);
+    ctx.textAlign = t===0?'left' : t===ticks-1?'right' : 'center';
+    ctx.fillText(md, x, padT+plotH+6);
+  }
 }
 
 function setupTabs(){
