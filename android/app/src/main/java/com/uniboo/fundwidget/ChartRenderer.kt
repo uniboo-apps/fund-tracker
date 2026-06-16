@@ -100,10 +100,9 @@ object ChartRenderer {
         // header right: 更新情報
         val updP = textPaint(BOLD, 10f * u, C_UPD).apply { textAlign = Paint.Align.RIGHT }
         drawTextTop(c, "最新 " + fmtMD(fs.dates[fs.dates.size - 1]), W - m, m, updP)
-        if (full) {
-            val gen = root.generatedAt.split(" ")
-            if (gen.size >= 2) drawTextTop(c, "更新 " + fmtMD(gen[0]) + " " + gen[1], W - m, m + 12f * u, updP)
-        }
+        // 更新日時（FULL・MEDIUM とも表示）
+        val gen = root.generatedAt.split(" ")
+        if (gen.size >= 2) drawTextTop(c, "更新 " + fmtMD(gen[0]) + " " + gen[1], W - m, m + 12f * u, updP)
 
         var y = m + flagH + 6f * u
 
@@ -116,10 +115,11 @@ object ChartRenderer {
         val valueP = textPaint(BOLD, (if (full) 26f else 22f) * u, C_VALUE)
         val footerH = textHeight(valueP) + 4f * u
         val dateP = textPaint(SANS, 10f * u, C_DATE)
-        val dateH = if (full) textHeight(dateP) + 4f * u else 0f
+        // 日付軸（FULL・MEDIUM とも表示）
+        val dateH = textHeight(dateP) + 4f * u
         val chartBottom = H - m - footerH
         val plot = RectF(m, y + 6f * u, W - m - 44f * u, chartBottom - dateH)
-        drawChart(c, fs, last, plot, u, W.toFloat(), full, dateP)
+        drawChart(c, fs, last, plot, u, W.toFloat(), true, dateP)
 
         // 下段：現在値＋変動幅
         val valBase = chartBottom + 2f * u - valueP.ascent()
