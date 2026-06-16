@@ -92,7 +92,9 @@
   .cfd{background:#eef0ee;border-radius:18px;padding:12px 14px 14px;margin-bottom:16px;
     box-shadow:0 2px 10px rgba(0,0,0,.35);max-width:340px;color:#1a1a1a;
     font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
-  .cfd-top{display:flex;align-items:center;gap:7px;font-weight:700}
+  .cfd-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700}
+  .cfd-left{display:flex;align-items:center;gap:7px;min-width:0}
+  .cfd-upd{font-size:10px;color:#9a9f9a;font-weight:600;text-align:right;line-height:1.3;white-space:nowrap}
   .cfd-flag{display:inline-flex;align-items:center;justify-content:center;
     width:30px;height:20px;border-radius:4px;background:#fff;font-size:14px;
     box-shadow:0 0 0 1px rgba(0,0,0,.12);overflow:hidden;line-height:1}
@@ -126,9 +128,12 @@
   <!-- CFD風ウィジェット（スクショ再現） -->
   <div class="cfd" id="cfd">
     <div class="cfd-top">
-      <span class="cfd-flag" id="cfdFlag">🇺🇸</span>
-      <span class="cfd-name" id="cfdName">S&amp;P500</span>
-      <span class="cfd-tag">CFD</span>
+      <span class="cfd-left">
+        <span class="cfd-flag" id="cfdFlag">🇺🇸</span>
+        <span class="cfd-name" id="cfdName">S&amp;P500</span>
+        <span class="cfd-tag">CFD</span>
+      </span>
+      <span class="cfd-upd" id="cfdUpd"></span>
     </div>
     <div class="cfd-pct" id="cfdPct">+0.00%</div>
     <div class="cfd-chartwrap">
@@ -280,6 +285,13 @@ function renderWidget(f){
   const series=f.index, n=series.length;
   const last=series[n-1][1], prev=series[n-2][1];
   const chg=last-prev, pc=chg/prev*100, up=chg>=0;
+
+  // 右上：最新データ日＋データ取得時刻
+  const fmtMD=s=>(+s.slice(5,7))+'/'+(+s.slice(8,10));
+  const gen=(DATA.generatedAt||'').split(' ');
+  document.getElementById('cfdUpd').innerHTML =
+    '最新 '+fmtMD(series[n-1][0])+
+    (gen[1]?'<br><span style="opacity:.85">更新 '+fmtMD(gen[0])+' '+gen[1]+'</span>':'');
 
   const pctEl=document.getElementById('cfdPct');
   pctEl.textContent=(pc>=0?'+':'')+pc.toFixed(2)+'%';
