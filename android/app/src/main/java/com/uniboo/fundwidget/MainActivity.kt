@@ -1,6 +1,7 @@
 package com.uniboo.fundwidget
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.util.TypedValue
@@ -8,10 +9,15 @@ import android.view.Gravity
 import android.widget.ScrollView
 import android.widget.TextView
 
-/** ウィジェットの追加方法を案内するだけの簡易画面 */
+/** ウィジェットの追加方法を案内する簡易画面。起動時にウィジェットを更新する。 */
 class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 起動のたびにウィジェットを最新化（タップで開く＝この経路で更新）
+        for (cls in listOf(FundWidgetSmall::class.java, FundWidgetMedium::class.java, FundWidgetLarge::class.java)) {
+            sendBroadcast(Intent(this, cls).apply { action = FundWidgetBase.ACTION_REFRESH })
+        }
 
         val tv = TextView(this).apply {
             text = """
@@ -20,17 +26,20 @@ class MainActivity : Activity() {
                 ■ 使い方
                 1. ホーム画面を長押し →「ウィジェット」を開く
                 2.「ファンドウィジェット（小／中／大）」から好きな大きさを配置
-                3. ウィジェットをタップするたびに S&P500 ⇄ オルカン が切り替わります
+                3. ウィジェットを上下にスワイプ → S&P500 ⇄ オルカン を切替
+                4. ウィジェットをタップ → このアプリが開きます
 
                 ■ サイズ
                 ・大… 旗＋変動率＋チャート＋日付軸＋更新情報（フル表示）
-                ・中… チャート＋目盛り＋現在値（日付軸なし）
+                ・中… チャート＋目盛り＋現在値＋日付軸＋更新情報
                 ・小… 変動率＋現在値＋ミニ折れ線（省スペース）
                 ※ 配置後にウィジェットの枠をドラッグしてサイズ調整も可
 
                 ■ 仕様
+                ・スワイプでカードをめくると2銘柄を切り替えられます
+                ・ダークモードに自動対応（端末の設定に追従）
                 ・指数データは fund-tracker の公開データを自動取得
-                ・約6時間ごと＋タップ時に自動更新
+                ・約6時間ごと＋アプリ起動時に自動更新
                 ・オフライン時は前回データを表示
 
                 このアプリ自体に開く画面はありません。

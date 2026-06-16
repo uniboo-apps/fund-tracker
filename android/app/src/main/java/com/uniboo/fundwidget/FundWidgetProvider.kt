@@ -6,20 +6,16 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.util.TypedValue
 import android.widget.RemoteViews
-import kotlin.math.roundToInt
 
 /** 共通ロジック。サイズ違いの 3 つの provider が継承する。 */
 abstract class FundWidgetBase : AppWidgetProvider() {
 
     companion object {
-        const val ACTION_TOGGLE = "com.uniboo.fundwidget.TOGGLE"
         const val ACTION_REFRESH = "com.uniboo.fundwidget.REFRESH"
-        private const val PREFS = "fundwidget"
-        private const val KEY_FUND = "fund"
-        private val FUNDS = listOf("sp500", "orukan")
 
         /** provider クラス → 描画モード */
         private val PROVIDER_MODES: List<Pair<Class<*>, ChartRenderer.Mode>> = listOf(
@@ -27,22 +23,11 @@ abstract class FundWidgetBase : AppWidgetProvider() {
             FundWidgetMedium::class.java to ChartRenderer.Mode.MEDIUM,
             FundWidgetLarge::class.java to ChartRenderer.Mode.FULL
         )
-
-        fun currentFund(ctx: Context): String =
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_FUND, "sp500") ?: "sp500"
-
-        fun toggleFund(ctx: Context) {
-            val next = FUNDS[(FUNDS.indexOf(currentFund(ctx)) + 1) % FUNDS.size]
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_FUND, next).apply()
-        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        when (intent.action) {
-            ACTION_TOGGLE -> { toggleFund(context); asyncUpdateAll(context) }
-            ACTION_REFRESH -> asyncUpdateAll(context)
-        }
+        if (intent.action == ACTION_REFRESH) asyncUpdateAll(context)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -64,47 +49,39 @@ abstract class FundWidgetBase : AppWidgetProvider() {
 
     private fun updateAll(ctx: Context) {
         val mgr = AppWidgetManager.getInstance(ctx)
-        val root = DataRepo.load(ctx)
-        val key = currentFund(ctx)
-        val tapPI = togglePendingIntent(ctx)
-
         for ((cls, mode) in PROVIDER_MODES) {
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, cls))
             for (id in ids) {
-                val (w, h) = sizeFor(ctx, mgr, id, mode)
-                val rv = RemoteViews(ctx.packageName, R.layout.widget)
-                val bmp = if (root != null) ChartRenderer.render(key, root, w, h, mode)
-                          else ChartRenderer.placeholder(w, h, "取得失敗（タップで再試行）")
-                rv.setImageViewBitmap(R.id.widget_image, bmp)
-                rv.setOnClickPendingIntent(R.id.widget_image, tapPI)
+                val rv = RemoteViews(ctx.packageName, R.layout.widget_stack)
+
+                // StackView にカード(2ファンド)を供給するアダプタ
+                val svc = Intent(ctx, WidgetRemoteViewsService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                    putExtra(WidgetRemoteViewsService.EXTRA_MODE, mode.name)
+                    // id+mode ごとに一意な data を付け、ファクトリを使い分けさせる
+                    data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
+                rv.setRemoteAdapter(R.id.stack, svc)
+                rv.setEmptyView(R.id.stack, R.id.empty)
+
+                // タップ → アプリ(MainActivity)を起動するテンプレート
+                rv.setPendingIntentTemplate(R.id.stack, launchTemplate(ctx, id))
+
                 mgr.updateAppWidget(id, rv)
+                mgr.notifyAppWidgetViewDataChanged(id, R.id.stack)
             }
         }
     }
 
-    private fun sizeFor(ctx: Context, mgr: AppWidgetManager, id: Int, mode: ChartRenderer.Mode): Pair<Int, Int> {
-        val opts = mgr.getAppWidgetOptions(id)
-        val minWDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
-        val minHDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        fun px(v: Int) = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), ctx.resources.displayMetrics
-        ).roundToInt()
-        // モードごとの既定サイズ（dp）。実サイズが取れればそちらを優先。
-        val (defW, defH) = when (mode) {
-            ChartRenderer.Mode.COMPACT -> 150 to 56
-            ChartRenderer.Mode.MEDIUM -> 200 to 120
-            ChartRenderer.Mode.FULL -> 260 to 200
+    private fun launchTemplate(ctx: Context, reqCode: Int): PendingIntent {
+        val launch = Intent(ctx, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val w = px(if (minWDp > 0) minWDp else defW).coerceIn(150, 520)
-        val h = px(if (minHDp > 0) minHDp else defH).coerceIn(70, 430)
-        return w to h
-    }
-
-    private fun togglePendingIntent(ctx: Context): PendingIntent {
-        // どのサイズをタップしても Large 経由で全ウィジェットを更新
-        val intent = Intent(ctx, FundWidgetLarge::class.java).apply { action = ACTION_TOGGLE }
-        return PendingIntent.getBroadcast(
-            ctx, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // テンプレート＋fill-in 方式なので Android 12+ では MUTABLE が必須
+        val mutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            PendingIntent.FLAG_MUTABLE else 0
+        return PendingIntent.getActivity(
+            ctx, reqCode, launch, PendingIntent.FLAG_UPDATE_CURRENT or mutable
         )
     }
 }

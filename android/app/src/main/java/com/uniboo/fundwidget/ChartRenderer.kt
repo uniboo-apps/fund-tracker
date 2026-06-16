@@ -14,7 +14,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Web 版 renderWidget を Canvas に移植。サイズに応じて FULL/MEDIUM/COMPACT を描き分ける。 */
+/** Web 版 renderWidget を Canvas に移植。サイズ(FULL/MEDIUM/COMPACT)と明暗(ダークモード)で描き分ける。 */
 object ChartRenderer {
 
     enum class Mode { FULL, MEDIUM, COMPACT }
@@ -22,28 +22,55 @@ object ChartRenderer {
     private val SANS = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
     private val BOLD = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
 
-    private const val C_BG = "#eef0ee"
-    private const val C_GREEN = "#1f9e4d"
-    private const val C_RED = "#e23b3b"
-    private const val C_TAG = "#8a8f8a"
-    private const val C_VALUE = "#111111"
-    private const val C_LINE = "#2f6df0"
-    private const val C_CYAN_LBL = "#0fb6c9"
-    private const val C_PINK_LBL = "#e85a93"
-    private const val C_UPD = "#9a9f9a"
-    private const val C_DATE = "#7a7f7a"
+    /** 配色（明 / 暗）。色はここを切り替えるだけで全体に反映される。 */
+    private class Palette(
+        val bg: Int, val green: Int, val red: Int, val tag: Int, val value: Int,
+        val line: Int, val cyan: Int, val pink: Int, val upd: Int, val date: Int,
+        val gridMid: Int, val dotRing: Int
+    )
 
-    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode): Bitmap {
+    private val LIGHT = Palette(
+        bg = Color.parseColor("#eef0ee"),
+        green = Color.parseColor("#1f9e4d"),
+        red = Color.parseColor("#e23b3b"),
+        tag = Color.parseColor("#8a8f8a"),
+        value = Color.parseColor("#111111"),
+        line = Color.parseColor("#2f6df0"),
+        cyan = Color.parseColor("#0fb6c9"),
+        pink = Color.parseColor("#e85a93"),
+        upd = Color.parseColor("#9a9f9a"),
+        date = Color.parseColor("#7a7f7a"),
+        gridMid = Color.argb(56, 150, 150, 150),
+        dotRing = Color.WHITE
+    )
+
+    private val DARK = Palette(
+        bg = Color.parseColor("#1b1e1b"),
+        green = Color.parseColor("#34d27a"),
+        red = Color.parseColor("#ff6b6b"),
+        tag = Color.parseColor("#9aa09a"),
+        value = Color.parseColor("#f2f4f2"),
+        line = Color.parseColor("#6ea0ff"),
+        cyan = Color.parseColor("#2fd0e0"),
+        pink = Color.parseColor("#ff7fb0"),
+        upd = Color.parseColor("#8a908a"),
+        date = Color.parseColor("#9aa09a"),
+        gridMid = Color.argb(60, 200, 200, 200),
+        dotRing = Color.parseColor("#1b1e1b")
+    )
+
+    fun render(key: String, root: Root, W: Int, H: Int, mode: Mode, dark: Boolean): Bitmap {
+        val pal = if (dark) DARK else LIGHT
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val uBg = W / 340f
-        val bgP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor(C_BG) }
+        val bgP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pal.bg }
         val rad = (if (mode == Mode.COMPACT) 14f else 18f) * uBg
         c.drawRoundRect(RectF(0f, 0f, W.toFloat(), H.toFloat()), rad, rad, bgP)
 
         val fs = root.funds[key] ?: root.funds.values.firstOrNull()
         if (fs == null || fs.vals.size < 2) {
-            drawCenter(c, W, H, uBg, "データなし")
+            drawCenter(c, W, H, uBg, "データなし", pal)
             return bmp
         }
 
@@ -53,22 +80,23 @@ object ChartRenderer {
         val chg = last - prev
         val pc = chg / prev * 100.0
         val up = chg >= 0
-        val accent = if (up) C_GREEN else C_RED
+        val accent = if (up) pal.green else pal.red
 
         when (mode) {
-            Mode.COMPACT -> drawCompact(c, key, fs, root, last, chg, pc, accent, W, H)
-            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode)
+            Mode.COMPACT -> drawCompact(c, key, fs, root, last, chg, pc, accent, W, H, pal)
+            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal)
         }
         return bmp
     }
 
-    fun placeholder(W: Int, H: Int, msg: String): Bitmap {
+    fun placeholder(W: Int, H: Int, msg: String, dark: Boolean): Bitmap {
+        val pal = if (dark) DARK else LIGHT
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val u = W / 340f
-        val bgP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor(C_BG) }
+        val bgP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pal.bg }
         c.drawRoundRect(RectF(0f, 0f, W.toFloat(), H.toFloat()), 14f * u, 14f * u, bgP)
-        drawCenter(c, W, H, u, msg)
+        drawCenter(c, W, H, u, msg, pal)
         return bmp
     }
 
@@ -76,8 +104,8 @@ object ChartRenderer {
 
     private fun drawCard(
         c: Canvas, key: String, fs: FundSeries, root: Root,
-        last: Double, chg: Double, pc: Double, accent: String,
-        W: Int, H: Int, mode: Mode
+        last: Double, chg: Double, pc: Double, accent: Int,
+        W: Int, H: Int, mode: Mode, pal: Palette
     ) {
         val full = mode == Mode.FULL
         val targetW = if (full) 340f else 300f
@@ -95,10 +123,10 @@ object ChartRenderer {
         val nameBase = m + flagH / 2f - (nameP.descent() + nameP.ascent()) / 2f
         c.drawText(name, nameX, nameBase, nameP)
         val nameW = nameP.measureText(name)
-        c.drawText("CFD", nameX + nameW + 7f * u, nameBase, textPaint(BOLD, 12f * u, C_TAG))
+        c.drawText("CFD", nameX + nameW + 7f * u, nameBase, textPaint(BOLD, 12f * u, pal.tag))
 
         // header right: 更新情報
-        val updP = textPaint(BOLD, 10f * u, C_UPD).apply { textAlign = Paint.Align.RIGHT }
+        val updP = textPaint(BOLD, 10f * u, pal.upd).apply { textAlign = Paint.Align.RIGHT }
         drawTextTop(c, "最新 " + fmtMD(fs.dates[fs.dates.size - 1]), W - m, m, updP)
         // 更新日時（FULL・MEDIUM とも表示）
         val gen = root.generatedAt.split(" ")
@@ -112,14 +140,14 @@ object ChartRenderer {
         y += textHeight(pctP) + 2f * u
 
         // レイアウト
-        val valueP = textPaint(BOLD, (if (full) 26f else 22f) * u, C_VALUE)
+        val valueP = textPaint(BOLD, (if (full) 26f else 22f) * u, pal.value)
         val footerH = textHeight(valueP) + 4f * u
-        val dateP = textPaint(SANS, 10f * u, C_DATE)
+        val dateP = textPaint(SANS, 10f * u, pal.date)
         // 日付軸（FULL・MEDIUM とも表示）
         val dateH = textHeight(dateP) + 4f * u
         val chartBottom = H - m - footerH
         val plot = RectF(m, y + 6f * u, W - m - 44f * u, chartBottom - dateH)
-        drawChart(c, fs, last, plot, u, W.toFloat(), true, dateP)
+        drawChart(c, fs, last, plot, u, W.toFloat(), true, dateP, pal)
 
         // 下段：現在値＋変動幅
         val valBase = chartBottom + 2f * u - valueP.ascent()
@@ -132,7 +160,7 @@ object ChartRenderer {
     /** 折れ線＋目盛り＋黄色帯＋ピル＋（必要なら）日付軸 */
     private fun drawChart(
         c: Canvas, fs: FundSeries, last: Double, plot: RectF,
-        u: Float, cardW: Float, showDates: Boolean, dateP: Paint
+        u: Float, cardW: Float, showDates: Boolean, dateP: Paint, pal: Palette
     ) {
         val (wv, wd) = window(fs)
         val cnt = wv.size
@@ -150,7 +178,7 @@ object ChartRenderer {
         var g = Math.ceil(lo / step) * step
         while (g <= hi) { levels.add(g); g += step }
         val gridP = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-        val lblP = textPaint(SANS, 11f * u, C_DATE).apply { textAlign = Paint.Align.LEFT }
+        val lblP = textPaint(SANS, 11f * u, pal.date).apply { textAlign = Paint.Align.LEFT }
         for (i in levels.indices) {
             val ly = yAt(levels[i])
             val top = i == levels.size - 1
@@ -158,14 +186,14 @@ object ChartRenderer {
             gridP.color = when {
                 top -> Color.argb(217, 25, 195, 214)
                 bot -> Color.argb(217, 240, 110, 160)
-                else -> Color.argb(56, 150, 150, 150)
+                else -> pal.gridMid
             }
             gridP.strokeWidth = if (top || bot) 1.2f * u else 1f * u
             c.drawLine(plot.left, ly, plot.right, ly, gridP)
             lblP.color = when {
-                top -> Color.parseColor(C_CYAN_LBL)
-                bot -> Color.parseColor(C_PINK_LBL)
-                else -> Color.parseColor(C_DATE)
+                top -> pal.cyan
+                bot -> pal.pink
+                else -> pal.date
             }
             c.drawText(comma(Math.round(levels[i])), plot.right + 5f * u, ly - (lblP.descent() + lblP.ascent()) / 2f, lblP)
         }
@@ -184,7 +212,7 @@ object ChartRenderer {
 
         // ライン
         val lineP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; color = Color.parseColor(C_LINE)
+            style = Paint.Style.STROKE; color = pal.line
             strokeWidth = 1.6f * u; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
         }
         val path = Path()
@@ -197,8 +225,8 @@ object ChartRenderer {
         // 末端ドット＋最新値ピル
         val ex = xAt(cnt - 1); val ey = yAt(last)
         val dotP = Paint(Paint.ANTI_ALIAS_FLAG)
-        dotP.color = Color.WHITE; c.drawCircle(ex, ey, 4.2f * u, dotP)
-        dotP.color = Color.parseColor(C_LINE); c.drawCircle(ex, ey, 2.6f * u, dotP)
+        dotP.color = pal.dotRing; c.drawCircle(ex, ey, 4.2f * u, dotP)
+        dotP.color = pal.line; c.drawCircle(ex, ey, 2.6f * u, dotP)
         val tag = comma(Math.round(last))
         val tagP = textPaint(BOLD, 11f * u, Color.WHITE)
         val tpad = 6f * u; val pillH = 17f * u
@@ -207,7 +235,7 @@ object ChartRenderer {
         if (px + pillW > cardW) px = cardW - pillW
         val py = max(0f, min(ey - pillH / 2f, plot.bottom - pillH))
         c.drawRoundRect(RectF(px, py, px + pillW, py + pillH), 5f * u, 5f * u,
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor(C_LINE) })
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pal.line })
         tagP.textAlign = Paint.Align.LEFT
         c.drawText(tag, px + tpad, py + pillH / 2f - (tagP.descent() + tagP.ascent()) / 2f, tagP)
 
@@ -230,7 +258,7 @@ object ChartRenderer {
 
     private fun drawCompact(
         c: Canvas, key: String, fs: FundSeries, root: Root,
-        last: Double, chg: Double, pc: Double, accent: String, W: Int, H: Int
+        last: Double, chg: Double, pc: Double, accent: Int, W: Int, H: Int, pal: Palette
     ) {
         val u = min(W / 300f, H / 120f)
         val pad = 12f * u
@@ -247,7 +275,7 @@ object ChartRenderer {
         drawTextTop(c, sign(pc) + fmt2(pc) + "%", pad, pad + flagH + 3f * u, pctP)
 
         // 左下：現在値＋変動幅
-        val valP = textPaint(BOLD, 14f * u, C_VALUE)
+        val valP = textPaint(BOLD, 14f * u, pal.value)
         val valStr = comma(Math.round(last))
         val valBase = H - pad - valP.descent()
         c.drawText(valStr, pad, valBase, valP)
@@ -255,10 +283,10 @@ object ChartRenderer {
         c.drawText(chgStr(chg), pad + vW + 6f * u, valBase, textPaint(BOLD, 11f * u, accent))
 
         // 右：スパークライン（軸なし）
-        drawSparkline(c, fs, last, RectF(W * 0.54f, pad, W - pad, H - pad), u)
+        drawSparkline(c, fs, last, RectF(W * 0.54f, pad, W - pad, H - pad), u, pal)
     }
 
-    private fun drawSparkline(c: Canvas, fs: FundSeries, last: Double, plot: RectF, u: Float) {
+    private fun drawSparkline(c: Canvas, fs: FundSeries, last: Double, plot: RectF, u: Float, pal: Palette) {
         val (wv, _) = window(fs)
         val cnt = wv.size
         var lo = wv.min(); var hi = wv.max()
@@ -266,7 +294,7 @@ object ChartRenderer {
         fun xAt(i: Int) = plot.left + (i / (cnt - 1f)) * (plot.right - plot.left)
         fun yAt(v: Double) = (plot.top + (1 - (v - lo) / (hi - lo)) * (plot.bottom - plot.top)).toFloat()
         val lineP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; color = Color.parseColor(C_LINE)
+            style = Paint.Style.STROKE; color = pal.line
             strokeWidth = 1.6f * u; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
         }
         val path = Path()
@@ -277,8 +305,8 @@ object ChartRenderer {
         c.drawPath(path, lineP)
         val ex = xAt(cnt - 1); val ey = yAt(last)
         val dotP = Paint(Paint.ANTI_ALIAS_FLAG)
-        dotP.color = Color.WHITE; c.drawCircle(ex, ey, 3.6f * u, dotP)
-        dotP.color = Color.parseColor(C_LINE); c.drawCircle(ex, ey, 2.4f * u, dotP)
+        dotP.color = pal.dotRing; c.drawCircle(ex, ey, 3.6f * u, dotP)
+        dotP.color = pal.line; c.drawCircle(ex, ey, 2.4f * u, dotP)
     }
 
     // ---------- helpers ----------
@@ -289,13 +317,10 @@ object ChartRenderer {
         return fs.vals.subList(start, n) to fs.dates.subList(start, n)
     }
 
-    private fun drawCenter(c: Canvas, W: Int, H: Int, u: Float, msg: String) {
-        val p = textPaint(BOLD, 14f * u, C_TAG).apply { textAlign = Paint.Align.CENTER }
+    private fun drawCenter(c: Canvas, W: Int, H: Int, u: Float, msg: String, pal: Palette) {
+        val p = textPaint(BOLD, 14f * u, pal.tag).apply { textAlign = Paint.Align.CENTER }
         c.drawText(msg, W / 2f, H / 2f - (p.descent() + p.ascent()) / 2f, p)
     }
-
-    private fun textPaint(tf: Typeface, size: Float, color: String) =
-        Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = tf; textSize = size; this.color = Color.parseColor(color) }
 
     private fun textPaint(tf: Typeface, size: Float, color: Int) =
         Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = tf; textSize = size; this.color = color }
