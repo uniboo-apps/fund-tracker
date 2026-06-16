@@ -109,6 +109,11 @@
   .cfd-val{font-size:26px;font-weight:800;color:#111;letter-spacing:.5px}
   .cfd-chg{font-size:17px;font-weight:700;color:#1f9e4d}
   .cfd-chg.dn{color:#e23b3b}
+  .cfd-fx{margin-left:auto;text-align:right;white-space:nowrap;line-height:1.15;align-self:flex-end}
+  .cfd-fx .l{display:block;font-size:10px;color:#8a8f8a;font-weight:700;letter-spacing:.5px}
+  .cfd-fx .v{font-size:15px;font-weight:800;color:#111}
+  .cfd-fx .c{font-size:11px;font-weight:700;margin-left:4px;color:#1f9e4d}
+  .cfd-fx .c.dn{color:#e23b3b}
 </style>
 </head>
 <body>
@@ -143,6 +148,7 @@
     <div class="cfd-bot">
       <span class="cfd-val" id="cfdVal">0</span>
       <span class="cfd-chg" id="cfdChg">+0</span>
+      <span class="cfd-fx" id="cfdFx"></span>
     </div>
   </div>
 
@@ -300,6 +306,18 @@ function renderWidget(f){
   const chgEl=document.getElementById('cfdChg');
   chgEl.textContent=(chg>=0?'+':'')+Math.round(chg);
   chgEl.className='cfd-chg'+(up?'':' dn');
+
+  // 右下：ドル円（USD/JPY）
+  const fxEl=document.getElementById('cfdFx');
+  const fxSeries=(DATA.fx&&DATA.fx.usdjpy&&DATA.fx.usdjpy.index)||null;
+  if(fxEl){
+    if(fxSeries&&fxSeries.length>=2){
+      const fl=fxSeries[fxSeries.length-1][1], fp=fxSeries[fxSeries.length-2][1], fd=fl-fp;
+      fxEl.innerHTML='<span class="l">ドル円 USD/JPY</span>'+
+        '<span class="v">'+fl.toFixed(2)+'</span>'+
+        '<span class="c'+(fd>=0?'':' dn')+'">'+(fd>=0?'+':'')+fd.toFixed(2)+'</span>';
+    } else { fxEl.textContent=''; }
+  }
 
   // 表示期間：通常は直近60営業日、拡大時は黄色帯と同じ直近14営業日
   const win=series.slice(Math.max(0, n-(cfdZoom?14:60)));
