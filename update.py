@@ -3,6 +3,7 @@
 
 import re
 import sys
+import os
 import requests
 from datetime import datetime, timezone, timedelta
 
@@ -119,6 +120,54 @@ js = (
     "};\n"
 )
 
+def count_series(text):
+    """Return data point counts for nav, index, and FX index series."""
+    def closing_bracket(start):
+        depth = 1
+        for pos in range(start, len(text)):
+            if text[pos] == "[":
+                depth += 1
+            elif text[pos] == "]":
+                depth -= 1
+                if depth == 0:
+                    return pos
+        return -1
+
+    counts = {}
+    for key in ("nav", "index"):
+        for match in re.finditer(rf'"{key}":\s*\[', text):
+            start = match.end()
+            end = closing_bracket(start)
+            if end == -1:
+                continue
+            name = f"{key}:{len([k for k in counts if k.startswith(key + ':')])}"
+            counts[name] = len(re.findall(r'\["\d{4}-\d{2}-\d{2}"', text[start:end]))
+    return counts
+
+
+def validate_no_shrink(new_js):
+    if os.environ.get("FORCE_WRITE") == "1" or not os.path.exists("data.js"):
+        return
+    try:
+        with open("data.js", encoding="utf-8") as fh:
+            old = count_series(fh.read())
+        new = count_series(new_js)
+    except (OSError, UnicodeDecodeError):
+        return
+    if len(old) != len(new):
+        return
+    failures = []
+    for key, old_count in old.items():
+        new_count = new[key]
+        limit = old_count if key.startswith("nav:") else old_count - 15
+        if new_count < limit:
+            failures.append(f"{key}: {old_count} -> {new_count}")
+    if failures:
+        print("Refusing to shrink data.js: " + "; ".join(failures), file=sys.stderr)
+        sys.exit(1)
+
+
+validate_no_shrink(js)
 with open("data.js", "w", encoding="utf-8") as fh:
     fh.write(js)
 

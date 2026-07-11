@@ -12,8 +12,6 @@ jobs:
     permissions:
       contents: write
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: 3441724797f692af21f432e8625165d9
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - run: pip install requests
+      - run: pip install requests==2.32.3
 
       - run: python update.py
 
@@ -41,6 +39,13 @@ jobs:
           node-version: "24"
 
       - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 3441724797f692af21f432e8625165d9
         run: |
           NAME="${{ github.event.repository.name }}"
-          npx -y wrangler@4 pages deploy . --project-name="$NAME" --branch=main --commit-dirty=true
+          # Add every new public asset to this allowlist.
+          mkdir -p _site/icons
+          cp index.html data.js sw.js manifest.json style.css app.js _headers _site/
+          cp icons/*.png _site/icons/
+          npx -y wrangler@4 pages deploy _site --project-name="$NAME" --branch=main --commit-dirty=true

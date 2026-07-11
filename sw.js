@@ -1,4 +1,4 @@
-const CACHE = 'fund-watcher-v1';
+const CACHE = 'fund-watcher-v2';
 
 const PRECACHE = [
   '/',
@@ -24,6 +24,9 @@ self.addEventListener('activate', e => {
 // Network-first: 常に最新データを取得、オフライン時はキャッシュで代替
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  // GitHub API などはキャッシュせず、同一オリジンと Chart.js だけを扱う。
+  if (url.origin !== self.location.origin && url.origin !== 'https://cdn.jsdelivr.net') return;
   e.respondWith(
     fetch(e.request)
       .then(res => {
