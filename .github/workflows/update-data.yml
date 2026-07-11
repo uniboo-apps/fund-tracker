@@ -46,6 +46,6 @@ jobs:
           NAME="${{ github.event.repository.name }}"
           # Add every new public asset to this allowlist.
           mkdir -p _site/icons
-          cp index.html data.js sw.js manifest.json style.css app.js _headers _site/
+          cp index.html 404.html data.js sw.js manifest.json style.css app.js _headers _site/
           cp icons/*.png _site/icons/
           npx -y wrangler@4 pages deploy _site --project-name="$NAME" --branch=main --commit-dirty=true
