@@ -1,4 +1,4 @@
-const CACHE = 'fund-watcher-v2';
+const CACHE = 'fund-watcher-v3';
 
 const PRECACHE = [
   '/',

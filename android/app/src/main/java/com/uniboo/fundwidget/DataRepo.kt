@@ -5,8 +5,14 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** 指数の時系列（日付・値）を 1 ファンド分保持 */
-data class FundSeries(val dates: List<String>, val vals: List<Double>)
+/** ウィジェットに表示する時系列と表示用メタデータ。 */
+data class FundSeries(
+    val dates: List<String>,
+    val vals: List<Double>,
+    val name: String,
+    val flag: String = "world",
+    val type: String = "fund"
+)
 
 /** data.js をパースした結果 */
 data class Root(
@@ -64,12 +70,22 @@ object DataRepo {
         val obj = JSONObject(raw.substring(s, e + 1))
         val gen = obj.optString("generatedAt", "")
         val fundsObj = obj.getJSONObject("funds")
-        val map = HashMap<String, FundSeries>()
-        val keys = fundsObj.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
+        val map = LinkedHashMap<String, FundSeries>()
+        val orderedKeys = runCatching {
+            obj.getJSONArray("order").let { order ->
+                List(order.length()) { order.getString(it) }
+            }
+        }.getOrElse {
+            val result = ArrayList<String>()
+            val keys = fundsObj.keys()
+            while (keys.hasNext()) result.add(keys.next())
+            result
+        }
+        for (key in orderedKeys) {
+            if (!fundsObj.has(key)) continue
             val fo = fundsObj.getJSONObject(key)
-            val idx = fo.getJSONArray("index")
+            // 新形式は nav（投信は基準価額、株は終値）。旧形式の index も読める。
+            val idx = if (fo.has("nav")) fo.getJSONArray("nav") else fo.getJSONArray("index")
             val dates = ArrayList<String>(idx.length())
             val vals = ArrayList<Double>(idx.length())
             for (i in 0 until idx.length()) {
@@ -77,7 +93,13 @@ object DataRepo {
                 dates.add(p.getString(0))
                 vals.add(p.getDouble(1))
             }
-            map[key] = FundSeries(dates, vals)
+            map[key] = FundSeries(
+                dates = dates,
+                vals = vals,
+                name = fo.optString("widgetLabel", fo.optString("short", fo.optString("name", key))),
+                flag = fo.optString("flag", "world"),
+                type = fo.optString("type", "fund")
+            )
         }
         // 為替（任意）: fx.usdjpy.index
         val usdjpy = runCatching {

@@ -23,7 +23,6 @@ abstract class FundWidgetBase : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.uniboo.fundwidget.REFRESH"
         private const val PREFS = "fundwidget"
         private const val KEY_FUND = "fund"
-        private val FUNDS = listOf("sp500", "orukan")
 
         /** provider クラス → (描画モード, ダークか) */
         private data class Variant(val mode: ChartRenderer.Mode, val dark: Boolean)
@@ -41,7 +40,11 @@ abstract class FundWidgetBase : AppWidgetProvider() {
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_FUND, "sp500") ?: "sp500"
 
         fun toggleFund(ctx: Context) {
-            val next = FUNDS[(FUNDS.indexOf(currentFund(ctx)) + 1) % FUNDS.size]
+            // data.js の order をそのまま使うので、stocks.json で増減した銘柄も自動で巡回する。
+            val keys = DataRepo.load(ctx)?.funds?.keys?.toList().orEmpty()
+            if (keys.isEmpty()) return
+            val current = currentFund(ctx)
+            val next = keys[(keys.indexOf(current).let { if (it < 0) -1 else it } + 1) % keys.size]
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_FUND, next).apply()
         }
     }
@@ -74,7 +77,8 @@ abstract class FundWidgetBase : AppWidgetProvider() {
     private fun updateAll(ctx: Context) {
         val mgr = AppWidgetManager.getInstance(ctx)
         val root = DataRepo.load(ctx)
-        val key = currentFund(ctx)
+        val available = root?.funds?.keys?.toList().orEmpty()
+        val key = currentFund(ctx).takeIf { it in available } ?: available.firstOrNull() ?: "sp500"
         val tapPI = togglePendingIntent(ctx)
 
         for ((cls, v) in VARIANTS) {

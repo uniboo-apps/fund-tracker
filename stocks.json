@@ -1,0 +1,19 @@
+{
+  "_readme": [
+    "個別株の設定ファイル。ここを編集して push（またはアプリの 🔄）すると data.js に反映される。",
+    "symbol だけ必須。Yahoo Finance のティッカー（東証は 4桁 + .T、例: 4755.T）。",
+    "short/name を省略すると Yahoo の銘柄名を自動で使う（英語名になるので日本語で入れるのがおすすめ）。",
+    "key を省略すると symbol から自動生成（4755.T → s4755）。既存キーと重複させないこと。",
+    "比較指数は既定で日経平均（^N225）。全体を変えるなら下の indexSym/indexName、",
+    "銘柄ごとに変えるなら各エントリに indexSym/indexName を書く（例: TOPIX 連動 ETF は 1306.T）。"
+  ],
+  "indexSym": "^N225",
+  "indexName": "日経平均株価",
+  "stocks": [
+    {
+      "symbol": "4755.T",
+      "short": "楽天G",
+      "name": "楽天グループ"
+    }
+  ]
+}

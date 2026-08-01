@@ -80,8 +80,8 @@ object ChartRenderer {
         val accent = if (up) pal.green else pal.red
 
         when (mode) {
-            Mode.COMPACT -> drawCompact(c, key, fs, root, last, chg, pc, accent, W, H, pal)
-            else -> drawCard(c, key, fs, root, last, chg, pc, accent, W, H, mode, pal)
+            Mode.COMPACT -> drawCompact(c, fs, root, last, chg, pc, accent, W, H, pal)
+            else -> drawCard(c, fs, root, last, chg, pc, accent, W, H, mode, pal)
         }
         return bmp
     }
@@ -100,7 +100,7 @@ object ChartRenderer {
     // ---------- FULL / MEDIUM ----------
 
     private fun drawCard(
-        c: Canvas, key: String, fs: FundSeries, root: Root,
+        c: Canvas, fs: FundSeries, root: Root,
         last: Double, chg: Double, pc: Double, accent: Int,
         W: Int, H: Int, mode: Mode, pal: Palette
     ) {
@@ -113,14 +113,14 @@ object ChartRenderer {
         // header: 旗＋名前＋CFD
         val flagW = 30f * u
         val flagH = 20f * u
-        drawFlag(c, key, m, m, flagW, flagH, u)
-        val name = if (key == "sp500") "S&P500" else "ACWI"
+        drawFlag(c, fs.flag, m, m, flagW, flagH, u)
+        val name = fs.name
         val nameP = textPaint(BOLD, 19f * u, accent)
         val nameX = m + flagW + 7f * u
         val nameBase = m + flagH / 2f - (nameP.descent() + nameP.ascent()) / 2f
         c.drawText(name, nameX, nameBase, nameP)
         val nameW = nameP.measureText(name)
-        c.drawText("CFD", nameX + nameW + 7f * u, nameBase, textPaint(BOLD, 12f * u, pal.tag))
+        c.drawText(if (fs.type == "stock") "株価" else "CFD", nameX + nameW + 7f * u, nameBase, textPaint(BOLD, 12f * u, pal.tag))
 
         // header right: 更新情報
         val updP = textPaint(BOLD, 10f * u, pal.upd).apply { textAlign = Paint.Align.RIGHT }
@@ -282,16 +282,16 @@ object ChartRenderer {
     // ---------- COMPACT（小） ----------
 
     private fun drawCompact(
-        c: Canvas, key: String, fs: FundSeries, root: Root,
+        c: Canvas, fs: FundSeries, root: Root,
         last: Double, chg: Double, pc: Double, accent: Int, W: Int, H: Int, pal: Palette
     ) {
         val u = min(W / 300f, H / 120f)
         val pad = 12f * u
-        val name = if (key == "sp500") "S&P500" else "ACWI"
+        val name = fs.name
 
         // 左：旗＋名前
         val flagW = 20f * u; val flagH = 13f * u
-        drawFlag(c, key, pad, pad, flagW, flagH, u)
+        drawFlag(c, fs.flag, pad, pad, flagW, flagH, u)
         val nameP = textPaint(BOLD, 13f * u, accent)
         c.drawText(name, pad + flagW + 5f * u, pad + flagH / 2f - (nameP.descent() + nameP.ascent()) / 2f, nameP)
 
@@ -366,7 +366,7 @@ object ChartRenderer {
         "${s.substring(5, 7).toInt()}/${s.substring(8, 10).toInt()}"
     } catch (e: Exception) { s }
 
-    private fun drawFlag(c: Canvas, key: String, x: Float, y: Float, w: Float, h: Float, u: Float) {
+    private fun drawFlag(c: Canvas, flag: String, x: Float, y: Float, w: Float, h: Float, u: Float) {
         val r = 4f * u
         c.drawRoundRect(RectF(x, y, x + w, y + h), r, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
         c.drawRoundRect(RectF(x, y, x + w, y + h), r, r, Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -374,7 +374,7 @@ object ChartRenderer {
         })
         c.save()
         c.clipPath(Path().apply { addRoundRect(RectF(x, y, x + w, y + h), r, r, Path.Direction.CW) })
-        if (key == "sp500") {
+        if (flag == "us") {
             val red = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#b22234") }
             val stripes = 7
             val step = h / stripes
@@ -385,6 +385,9 @@ object ChartRenderer {
             }
             c.drawRect(x, y, x + w * 0.42f, y + h * 0.54f,
                 Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#3c3b6e") })
+        } else if (flag == "jp") {
+            val cx = x + w / 2f; val cy = y + h / 2f
+            c.drawCircle(cx, cy, min(w, h) * 0.27f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#d92332") })
         } else {
             val cx = x + w / 2f; val cy = y + h / 2f
             val rr = min(w, h) / 2f - 1f * u
