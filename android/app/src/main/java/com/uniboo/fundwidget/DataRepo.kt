@@ -111,7 +111,7 @@ object DataRepo {
                 dates.add(p.getString(0))
                 vals.add(p.getDouble(1))
             }
-            FundSeries(dates, vals)
+            FundSeries(dates, vals, "ドル円")
         }.getOrNull()
         return Root(gen, map, usdjpy)
     }
