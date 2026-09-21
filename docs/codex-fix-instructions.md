@@ -1,3 +1,5 @@
+﻿> 分類: 限定タスク計画／当時の記録（完了未判定）。現在の入口から先にルールを確認する。通常作業の行動許可は [共通方針](C:/work/Claude/docs/agent-rules/workspace.md) だけが与え、repo 固有の例外・追加条件は [固有ルール](agent-rules.md)。本書は許可を与えない。本文のフェーズ順・対象制限は明示再開時にだけ適用し、恒久的なデータ保護・製品契約は関連機能の変更前に確認する。
+
 # fund-tracker セキュリティ・安定性・リファクタリング修正指示書
 
 対象リポジトリ: `C:\work\Claude\fund-tracker`（GitHub: uniboo-apps/fund-tracker、**public**）
@@ -9,7 +11,7 @@
   public リポジトリなので、未修正の脆弱性一覧を先に公開してはいけない。
   全フェーズ完了後の最終コミットに含めるのは可。
 - コミットメッセージは **ASCII（英数字）のみ**（非ASCIIだと Cloudflare Pages デプロイが失敗する）。
-- コード変更後は確認なしに `git commit & push` してよい（push で自動デプロイ）。
+- commit/push は [共通正本](C:/work/Claude/docs/agent-rules/workspace.md) に従う。
   push が rejected になったら Actions の data.js 自動更新が原因なので `git pull --rebase origin main` してから再 push。
 - コミット後は短縮ハッシュを報告に明記すること。
 - デプロイ完了の監視は不要（push できたら作業完了扱い）。ただしフェーズ6の受入確認だけは
